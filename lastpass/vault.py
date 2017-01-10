@@ -28,6 +28,7 @@ class Vault(object):
     def __init__(self, blob, encryption_key):
         """This more of an internal method, use one of the static constructors instead"""
         self.accounts = []
+        self.notes = []
 
         key = encryption_key
         rsa_private_key = None

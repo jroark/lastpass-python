@@ -18,13 +18,12 @@ from .chunk import Chunk
 RSA_PKCS1_OAEP_PADDING = 4
 
 # Secure note types that contain account-like information
-ALLOWED_SECURE_NOTE_TYPES = [
+SERVER_SECURE_NOTE_TYPES = [
     b"Server",
     b"Email Account",
     b"Database",
     b"Instant Messenger",
 ]
-
 
 def extract_chunks(blob):
     """Splits the blob into chucks grouped by kind."""
@@ -56,9 +55,11 @@ def parse_ACCT(chunk, encryption_key):
     url = decode_hex(read_item(io))
     notes = decode_aes256_plain_auto(read_item(io), encryption_key)
     skip_item(io, 2)
+
     username = decode_aes256_plain_auto(read_item(io), encryption_key)
     password = decode_aes256_plain_auto(read_item(io), encryption_key)
     skip_item(io, 2)
+
     secure_note = read_item(io)
 
     # Parse secure note
@@ -67,12 +68,10 @@ def parse_ACCT(chunk, encryption_key):
         secure_note_type = read_item(io)
 
         # Only "Server" secure note stores account information
-        if secure_note_type not in ALLOWED_SECURE_NOTE_TYPES:
-            return None
+        if secure_note_type in SERVER_SECURE_NOTE_TYPES:
+            url, username, password = parse_secure_note_server(notes)
 
-        url, username, password = parse_secure_note_server(notes)
-
-    return Account(id, name, username, password, url, group)
+    return Account(id, name, username, password, url, group, notes)
 
 
 def parse_PRIK(chunk, encryption_key):
@@ -125,15 +124,19 @@ def parse_secure_note_server(notes):
     for i in notes.split(b'\n'):
         if not i:  # blank line
             continue
-        # Split only once so that strings like "Hostname:host.example.com:80"
-        # get interpreted correctly
-        key, value = i.split(b':', 1)
-        if key == b'Hostname':
-            url = value
-        elif key == b'Username':
-            username = value
-        elif key == b'Password':
-            password = value
+        #print "%s" % i
+        try:
+            # Split only once so that strings like "Hostname:host.example.com:80"
+            # get interpreted correctly
+            key, value = i.split(b':', 1)
+            if key == b'Hostname':
+                url = value
+            elif key == b'Username':
+                username = value
+            elif key == b'Password':
+                password = value
+        except:
+            continue
 
     return [url, username, password]
 
